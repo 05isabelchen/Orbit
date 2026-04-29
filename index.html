@@ -1,0 +1,1621 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Orbit — Spontaneous Hangouts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet" />
+
+<style>
+/* ─────────────────────────────────────────────
+   RESET & BASE
+───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0a0c12;
+  --surface:   #12151f;
+  --card:      #181c2a;
+  --border:    rgba(255,255,255,0.07);
+  --accent:    #5affb8;
+  --accent2:   #5ab8ff;
+  --accent3:   #ff6b6b;
+  --accent4:   #ffb85a;
+  --text:      #e8eaf2;
+  --muted:     #636882;
+  --radius:    18px;
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+#app { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ─── SCREENS ─── */
+.screen {
+  display: none; flex-direction: column;
+  min-height: calc(100vh - 73px);
+  animation: fadeUp 0.4s ease forwards;
+}
+.screen.active { display: flex; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── NAV ─── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px;
+  background: rgba(10,12,18,0.88);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.nav-logo {
+  font-family: var(--font-head);
+  font-size: 1.3rem; font-weight: 800; letter-spacing: -0.03em;
+  color: var(--accent);
+}
+.nav-logo span { color: var(--text); }
+
+.nav-tabs {
+  display: flex; gap: 3px;
+  background: var(--surface);
+  border-radius: 50px; padding: 4px;
+}
+
+.nav-tab {
+  background: none; border: none; cursor: pointer;
+  padding: 6px 13px; border-radius: 50px;
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 500;
+  color: var(--muted); transition: all 0.2s;
+  position: relative;
+}
+.nav-tab.active { background: var(--card); color: var(--text); }
+.nav-tab:hover:not(.active) { color: var(--text); }
+
+/* badge on tab */
+.tab-badge {
+  position: absolute; top: 2px; right: 4px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent3);
+  border: 2px solid var(--surface);
+  display: none;
+}
+.tab-badge.visible { display: block; }
+
+.nav-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 2px solid var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1rem; background: var(--surface); cursor: pointer;
+  transition: transform 0.2s;
+}
+.nav-avatar:hover { transform: scale(1.08); }
+
+/* ─── TOAST ─── */
+#toast-container {
+  position: fixed; top: 76px; right: 16px; z-index: 999;
+  display: flex; flex-direction: column; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: var(--card); border: 1px solid var(--border);
+  border-left: 3px solid var(--accent); border-radius: var(--radius);
+  padding: 13px 16px; width: 300px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  pointer-events: all;
+  animation: slideIn 0.4s cubic-bezier(0.16,1,0.3,1) forwards;
+  display: flex; gap: 11px; align-items: flex-start;
+}
+.toast.invite-in { border-left-color: var(--accent2); }
+.toast.farewell  { border-left-color: var(--accent3); }
+.toast.success   { border-left-color: var(--accent); }
+.toast-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
+.toast-body { flex: 1; }
+.toast-title { font-family: var(--font-head); font-size: 0.86rem; font-weight: 700; margin-bottom: 2px; }
+.toast-msg   { font-size: 0.78rem; color: var(--muted); }
+.toast-actions { display: flex; gap: 6px; margin-top: 8px; }
+.toast-btn {
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 0.75rem; font-weight: 600; cursor: pointer; border: none;
+  transition: opacity 0.2s;
+}
+.toast-btn:hover { opacity: 0.8; }
+.toast-btn.accept { background: rgba(90,255,184,0.2); color: var(--accent); }
+.toast-btn.decline { background: rgba(255,107,107,0.15); color: var(--accent3); }
+.toast-close {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 0.95rem; flex-shrink: 0; margin-top: 1px; transition: color 0.2s;
+}
+.toast-close:hover { color: var(--text); }
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(40px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes slideOut {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(40px); }
+}
+
+/* ═══════════════════════════════════════════
+   SCREEN 1 — RADAR
+═══════════════════════════════════════════ */
+#radar-screen { padding: 20px; flex: 1; }
+
+.radar-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 18px;
+}
+.radar-header h1 {
+  font-family: var(--font-head);
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em;
+}
+.radar-header h1 span { color: var(--accent); }
+
+.status-pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50px; padding: 5px 12px;
+  font-size: 0.75rem; color: var(--muted);
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.7); }
+}
+
+.radar-wrap {
+  position: relative; width: 100%; max-width: 440px;
+  margin: 0 auto 22px; aspect-ratio: 1;
+}
+#radarCanvas { width: 100%; height: 100%; display: block; }
+
+.radar-legend {
+  display: flex; gap: 14px; justify-content: center;
+  margin-bottom: 20px; flex-wrap: wrap;
+}
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; color: var(--muted); }
+.legend-dot  { width: 9px; height: 9px; border-radius: 50%; }
+
+.section-label {
+  font-family: var(--font-head);
+  font-size: 0.67rem; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+}
+
+.friends-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+
+.friend-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px;
+  transition: border-color 0.2s, transform 0.2s; cursor: pointer;
+}
+.friend-card:hover { border-color: rgba(90,255,184,0.3); transform: translateX(4px); }
+.friend-card.offline { opacity: 0.5; }
+
+.friend-avatar {
+  width: 42px; height: 42px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.25rem; flex-shrink: 0; position: relative;
+}
+.friend-avatar-status {
+  position: absolute; bottom: 1px; right: 1px;
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 2px solid var(--card);
+}
+.friend-avatar-status.online  { background: var(--accent); }
+.friend-avatar-status.away    { background: var(--accent4); }
+.friend-avatar-status.offline { background: var(--muted); }
+
+.friend-info { flex: 1; min-width: 0; }
+.friend-name {
+  font-family: var(--font-head); font-weight: 700; font-size: 0.9rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.friend-sub { font-size: 0.75rem; color: var(--muted); margin-top: 1px; }
+
+.friend-badge {
+  font-size: 0.7rem; font-weight: 600;
+  padding: 3px 9px; border-radius: 50px; flex-shrink: 0;
+}
+.badge-near   { background: rgba(90,255,184,0.12); color: var(--accent); }
+.badge-away   { background: rgba(255,184,90,0.12); color: var(--accent4); }
+.badge-far    { background: rgba(99,104,130,0.15); color: var(--muted); }
+
+.radius-control {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 18px; margin-bottom: 8px;
+}
+.radius-control-top {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+.radius-label { font-size: 0.82rem; color: var(--muted); }
+.radius-value { font-family: var(--font-head); font-weight: 700; color: var(--accent); font-size: 0.95rem; }
+
+input[type=range] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 4px;
+  background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct, 50%), var(--surface) var(--pct, 50%));
+  border-radius: 4px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 17px; height: 17px; border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(90,255,184,0.2);
+  transition: box-shadow 0.2s;
+}
+input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 7px rgba(90,255,184,0.22); }
+
+/* ═══════════════════════════════════════════
+   SCREEN 2 — INVITES  ★ NEW ★
+═══════════════════════════════════════════ */
+#invites-screen { padding: 20px; flex: 1; }
+
+.invites-header { margin-bottom: 22px; }
+.invites-header h1 {
+  font-family: var(--font-head);
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 3px;
+}
+.invites-header p { color: var(--muted); font-size: 0.85rem; }
+
+/* Sub-tabs */
+.subtabs {
+  display: flex; gap: 0; margin-bottom: 22px;
+  background: var(--surface); border-radius: 12px;
+  padding: 4px; border: 1px solid var(--border);
+}
+.subtab {
+  flex: 1; background: none; border: none; cursor: pointer;
+  padding: 8px 4px; border-radius: 9px;
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 500;
+  color: var(--muted); transition: all 0.2s; text-align: center;
+  position: relative;
+}
+.subtab.active { background: var(--card); color: var(--text); }
+.subtab-count {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  font-size: 0.65rem; font-weight: 700;
+  margin-left: 5px; vertical-align: middle;
+}
+.subtab-count.red  { background: rgba(255,107,107,0.2); color: var(--accent3); }
+.subtab-count.blue { background: rgba(90,184,255,0.15); color: var(--accent2); }
+.subtab-count.gray { background: rgba(99,104,130,0.2); color: var(--muted); }
+
+.invite-list { display: flex; flex-direction: column; gap: 12px; }
+
+/* ── INCOMING invite card ── */
+.invite-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  transition: border-color 0.25s;
+}
+.invite-card.incoming { border-left: 3px solid var(--accent2); }
+.invite-card.outgoing { border-left: 3px solid var(--accent); }
+.invite-card.pending  { border-left: 3px solid var(--accent4); }
+.invite-card.accepted { border-left: 3px solid var(--accent); opacity: 0.7; }
+.invite-card.declined { border-left: 3px solid var(--accent3); opacity: 0.6; }
+.invite-card.expired  { border-left: 3px solid var(--muted); opacity: 0.5; }
+
+.invite-card-top {
+  display: flex; align-items: flex-start; gap: 13px;
+  padding: 15px 16px 10px;
+}
+.invite-avatar {
+  width: 46px; height: 46px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+  position: relative;
+}
+.invite-type-badge {
+  position: absolute; bottom: -2px; right: -2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.65rem;
+  border: 2px solid var(--card);
+}
+.invite-type-badge.in  { background: var(--accent2); }
+.invite-type-badge.out { background: var(--accent); }
+
+.invite-main { flex: 1; min-width: 0; }
+.invite-who {
+  font-family: var(--font-head); font-weight: 700; font-size: 0.92rem;
+  margin-bottom: 1px;
+}
+.invite-action { font-size: 0.78rem; color: var(--muted); margin-bottom: 5px; }
+.invite-action strong { color: var(--text); font-weight: 600; }
+
+/* Place pill inside card */
+.invite-place-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50px; padding: 5px 11px;
+  font-size: 0.78rem; font-weight: 500;
+  margin-bottom: 4px;
+}
+.invite-place-pill span { font-size: 1rem; }
+
+.invite-meta-row {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
+}
+.invite-time { font-size: 0.72rem; color: var(--muted); }
+.invite-dist {
+  font-size: 0.72rem; font-weight: 600;
+  padding: 2px 8px; border-radius: 50px;
+}
+.invite-dist.near { background: rgba(90,255,184,0.1); color: var(--accent); }
+.invite-dist.far  { background: rgba(99,104,130,0.12); color: var(--muted); }
+
+.invite-status-badge {
+  font-size: 0.7rem; font-weight: 700;
+  padding: 2px 9px; border-radius: 50px; margin-left: auto;
+}
+.status-pending  { background: rgba(255,184,90,0.15); color: var(--accent4); }
+.status-accepted { background: rgba(90,255,184,0.12); color: var(--accent); }
+.status-declined { background: rgba(255,107,107,0.12); color: var(--accent3); }
+.status-expired  { background: rgba(99,104,130,0.12); color: var(--muted); }
+
+/* Message bubble */
+.invite-message {
+  margin: 0 16px 12px;
+  background: var(--surface); border-radius: 10px;
+  padding: 9px 12px; font-size: 0.82rem;
+  color: var(--text); font-style: italic;
+  border-left: 2px solid var(--border);
+}
+
+/* Action row */
+.invite-actions {
+  display: flex; gap: 8px;
+  padding: 0 16px 15px;
+}
+.btn-accept {
+  flex: 1; padding: 10px;
+  background: rgba(90,255,184,0.15);
+  border: 1px solid rgba(90,255,184,0.35);
+  color: var(--accent);
+  border-radius: 11px;
+  font-family: var(--font-head); font-size: 0.85rem; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-accept:hover { background: rgba(90,255,184,0.25); }
+
+.btn-decline {
+  flex: 1; padding: 10px;
+  background: rgba(255,107,107,0.1);
+  border: 1px solid rgba(255,107,107,0.25);
+  color: var(--accent3);
+  border-radius: 11px;
+  font-family: var(--font-body); font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-decline:hover { background: rgba(255,107,107,0.18); }
+
+.btn-cancel-invite {
+  flex: 1; padding: 10px;
+  background: rgba(99,104,130,0.12);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 11px;
+  font-family: var(--font-body); font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-cancel-invite:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+
+.btn-resend {
+  flex: 1; padding: 10px;
+  background: rgba(90,184,255,0.1);
+  border: 1px solid rgba(90,184,255,0.25);
+  color: var(--accent2);
+  border-radius: 11px;
+  font-family: var(--font-body); font-size: 0.85rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-resend:hover { background: rgba(90,184,255,0.18); }
+
+/* Who else chip row */
+.invite-also {
+  display: flex; gap: 6px; align-items: center;
+  padding: 0 16px 14px; flex-wrap: wrap;
+}
+.also-label { font-size: 0.72rem; color: var(--muted); }
+.also-chip {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50px; padding: 3px 9px;
+  font-size: 0.72rem; font-weight: 500;
+  display: flex; align-items: center; gap: 4px;
+}
+
+/* Send new invite CTA */
+.new-invite-cta {
+  display: flex; align-items: center; gap: 14px;
+  background: linear-gradient(135deg, rgba(90,255,184,0.07), rgba(90,184,255,0.07));
+  border: 1px dashed rgba(90,255,184,0.25);
+  border-radius: var(--radius); padding: 18px 20px;
+  cursor: pointer; transition: all 0.2s;
+  margin-bottom: 20px;
+}
+.new-invite-cta:hover { border-color: rgba(90,255,184,0.5); background: rgba(90,255,184,0.08); }
+.new-invite-icon {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: rgba(90,255,184,0.12);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem; flex-shrink: 0;
+}
+.new-invite-text { flex: 1; }
+.new-invite-title { font-family: var(--font-head); font-weight: 700; font-size: 0.95rem; }
+.new-invite-sub   { font-size: 0.78rem; color: var(--muted); }
+
+/* Empty state */
+.empty-state {
+  text-align: center; padding: 48px 20px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+}
+.empty-state-icon { font-size: 3rem; opacity: 0.4; }
+.empty-state-title { font-family: var(--font-head); font-weight: 700; color: var(--muted); }
+.empty-state-sub   { font-size: 0.82rem; color: var(--muted); opacity: 0.7; }
+
+/* ═══════════════════════════════════════════
+   SCREEN 3 — SUGGESTIONS
+═══════════════════════════════════════════ */
+#suggestions-screen { padding: 20px; flex: 1; }
+
+.suggest-header { margin-bottom: 20px; }
+.suggest-header h1 {
+  font-family: var(--font-head);
+  font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 3px;
+}
+.suggest-header p { color: var(--muted); font-size: 0.85rem; }
+
+.prefs-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 20px; }
+.pref-chip {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50px; padding: 5px 13px;
+  font-size: 0.78rem; cursor: pointer; transition: all 0.2s; user-select: none;
+}
+.pref-chip.selected { background: rgba(90,255,184,0.12); border-color: var(--accent); color: var(--accent); }
+.pref-chip:hover:not(.selected) { border-color: rgba(255,255,255,0.18); }
+
+.places-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px; margin-bottom: 24px;
+}
+
+.place-card {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+  transition: transform 0.25s, border-color 0.25s; cursor: pointer;
+}
+.place-card:hover { transform: translateY(-4px); border-color: rgba(90,180,255,0.3); }
+
+.place-thumb {
+  height: 100px; display: flex; align-items: center; justify-content: center;
+  font-size: 2.8rem; position: relative;
+}
+.place-body { padding: 12px 14px; }
+.place-name { font-family: var(--font-head); font-weight: 700; font-size: 0.95rem; margin-bottom: 4px; }
+.place-meta { display: flex; gap: 10px; align-items: center; margin-bottom: 7px; }
+.place-distance { font-size: 0.73rem; color: var(--muted); }
+.place-rating   { font-size: 0.73rem; color: var(--accent4); display: flex; align-items: center; gap: 3px; }
+.place-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.place-tag {
+  background: rgba(90,184,255,0.1); color: var(--accent2);
+  font-size: 0.66rem; font-weight: 600;
+  padding: 2px 7px; border-radius: 4px;
+  letter-spacing: 0.04em; text-transform: uppercase;
+}
+.btn-invite {
+  width: 100%; background: rgba(90,255,184,0.1);
+  border: 1px solid rgba(90,255,184,0.3); color: var(--accent);
+  border-radius: 9px; padding: 8px;
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 600;
+  cursor: pointer; margin-top: 9px; transition: all 0.2s;
+}
+.btn-invite:hover { background: rgba(90,255,184,0.2); border-color: var(--accent); }
+
+/* ═══════════════════════════════════════════
+   SCREEN 4 — PROFILE
+═══════════════════════════════════════════ */
+#profile-screen { padding: 20px; flex: 1; }
+
+.profile-hero {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 28px 0 24px; text-align: center;
+}
+.profile-avatar-big {
+  width: 84px; height: 84px; border-radius: 50%;
+  background: var(--surface); border: 3px solid var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.6rem; margin-bottom: 14px;
+  box-shadow: 0 0 0 6px rgba(90,255,184,0.08);
+}
+.profile-name { font-family: var(--font-head); font-size: 1.4rem; font-weight: 800; margin-bottom: 3px; }
+.profile-handle { color: var(--muted); font-size: 0.82rem; }
+
+.profile-stats {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden; margin: 18px 0 24px;
+}
+.stat-cell { background: var(--card); padding: 14px; text-align: center; }
+.stat-val {
+  font-family: var(--font-head); font-size: 1.4rem; font-weight: 800;
+  color: var(--accent); display: block;
+}
+.stat-lbl { font-size: 0.7rem; color: var(--muted); margin-top: 1px; }
+
+.settings-group {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden; margin-bottom: 14px;
+}
+.settings-item {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.15s;
+}
+.settings-item:last-child { border-bottom: none; }
+.settings-item:hover { background: rgba(255,255,255,0.02); }
+.settings-left { display: flex; align-items: center; gap: 11px; }
+.settings-icon {
+  width: 32px; height: 32px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center; font-size: 0.95rem;
+}
+.settings-title { font-size: 0.88rem; font-weight: 500; }
+.settings-sub   { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+.settings-arrow { color: var(--muted); font-size: 0.95rem; }
+
+.toggle {
+  width: 40px; height: 22px; background: var(--surface);
+  border-radius: 50px; position: relative; cursor: pointer;
+  border: 1px solid var(--border); transition: background 0.2s, border-color 0.2s; flex-shrink: 0;
+}
+.toggle.on { background: rgba(90,255,184,0.18); border-color: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--muted); top: 3px; left: 3px;
+  transition: transform 0.2s, background 0.2s;
+}
+.toggle.on::after { transform: translateX(18px); background: var(--accent); }
+
+/* ─── MODALS ─── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(6px);
+  align-items: flex-end; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.modal-sheet {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 24px 24px 0 0; padding: 24px 20px 38px;
+  width: 100%; max-width: 540px;
+  animation: sheetUp 0.35s cubic-bezier(0.16,1,0.3,1) forwards;
+  max-height: 90vh; overflow-y: auto;
+}
+@keyframes sheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.modal-handle {
+  width: 38px; height: 4px; border-radius: 4px;
+  background: var(--border); margin: 0 auto 18px;
+}
+.modal-title { font-family: var(--font-head); font-size: 1.2rem; font-weight: 800; margin-bottom: 4px; }
+.modal-sub   { color: var(--muted); font-size: 0.82rem; margin-bottom: 18px; }
+
+.btn-primary {
+  width: 100%; padding: 13px; background: var(--accent); color: #0a0c12;
+  border: none; border-radius: 12px;
+  font-family: var(--font-head); font-size: 0.92rem; font-weight: 700;
+  cursor: pointer; transition: opacity 0.2s, transform 0.2s; margin-top: 8px;
+}
+.btn-primary:hover { opacity: 0.88; transform: scale(0.99); }
+.btn-ghost {
+  width: 100%; padding: 11px; background: none; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 12px;
+  font-family: var(--font-body); font-size: 0.85rem; font-weight: 500;
+  cursor: pointer; transition: color 0.2s, border-color 0.2s; margin-top: 8px;
+}
+.btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.18); }
+
+.modal-friends { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 16px; }
+.modal-friend-chip {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 50px; padding: 5px 11px 5px 5px;
+  cursor: pointer; transition: all 0.2s; font-size: 0.8rem;
+}
+.modal-friend-chip.selected { border-color: var(--accent); background: rgba(90,255,184,0.08); color: var(--accent); }
+.modal-friend-chip span { font-size: 1.05rem; }
+
+/* message textarea */
+.invite-message-input {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 11px 14px; color: var(--text);
+  font-family: var(--font-body); font-size: 0.85rem; resize: none;
+  outline: none; transition: border-color 0.2s; margin-bottom: 4px;
+}
+.invite-message-input:focus { border-color: rgba(90,255,184,0.4); }
+.invite-message-input::placeholder { color: var(--muted); }
+
+.divider { height: 1px; background: var(--border); margin: 18px 0; }
+</style>
+
+</head>
+<body>
+<div id="app">
+
+<!-- NAV -->
+
+<nav>
+  <div class="nav-logo">orbit<span>.</span></div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showScreen('radar')">🛰 Radar</button>
+    <button class="nav-tab" onclick="showScreen('invites')" id="tab-invites">
+      📬 Invites
+      <div class="tab-badge visible" id="invite-badge"></div>
+    </button>
+    <button class="nav-tab" onclick="showScreen('suggestions')">✨ Spots</button>
+    <button class="nav-tab" onclick="showScreen('profile')">👤 Me</button>
+  </div>
+  <div class="nav-avatar" title="Your profile">😎</div>
+</nav>
+
+<div id="toast-container"></div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 1 — RADAR
+══════════════════════════════════════ -->
+
+<div id="radar-screen" class="screen active">
+  <div class="radar-header">
+    <h1>Who's <span>near you</span></h1>
+    <div class="status-pill"><div class="status-dot"></div>Live</div>
+  </div>
+
+  <div class="radar-wrap">
+    <canvas id="radarCanvas" width="460" height="460"></canvas>
+  </div>
+
+  <div class="radar-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>You</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>Nearby</div>
+    <div class="legend-item"><div class="legend-dot" style="background:var(--accent3)"></div>Far</div>
+  </div>
+
+  <div class="radius-control">
+    <div class="radius-control-top">
+      <span class="radius-label">Detection radius</span>
+      <span class="radius-value" id="radius-display">1.0 km</span>
+    </div>
+    <input type="range" id="radius-slider" min="1" max="10" value="5" oninput="updateRadius(this)" />
+  </div>
+
+  <div class="divider"></div>
+  <p class="section-label">Friends nearby</p>
+  <div class="friends-list" id="friends-list"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 2 — INVITES  ★ NEW ★
+══════════════════════════════════════ -->
+
+<div id="invites-screen" class="screen">
+  <div class="invites-header">
+    <h1>Hangout Invites</h1>
+    <p>Send, receive, and manage your orbit hangouts</p>
+  </div>
+
+  <!-- Send a new invite CTA -->
+
+  <div class="new-invite-cta" onclick="openModal('send-invite-modal')">
+    <div class="new-invite-icon">🚀</div>
+    <div class="new-invite-text">
+      <div class="new-invite-title">Start a hangout</div>
+      <div class="new-invite-sub">Pick a spot and invite your nearby crew</div>
+    </div>
+    <span style="color:var(--accent);font-size:1.2rem">›</span>
+  </div>
+
+  <!-- Sub-tabs -->
+
+  <div class="subtabs">
+    <button class="subtab active" onclick="switchSubtab('received', this)">
+      Received <span class="subtab-count red" id="received-count">2</span>
+    </button>
+    <button class="subtab" onclick="switchSubtab('sent', this)">
+      Sent <span class="subtab-count blue" id="sent-count">3</span>
+    </button>
+    <button class="subtab" onclick="switchSubtab('past', this)">
+      Past <span class="subtab-count gray" id="past-count">4</span>
+    </button>
+  </div>
+
+  <div id="invite-list-container" class="invite-list"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 3 — SUGGESTIONS
+══════════════════════════════════════ -->
+
+<div id="suggestions-screen" class="screen">
+  <div class="suggest-header">
+    <h1>Spot suggestions</h1>
+    <p>Picked for you &amp; your crew based on vibe &amp; location</p>
+  </div>
+  <p class="section-label">Filter by vibe</p>
+  <div class="prefs-row" id="prefs-row"></div>
+  <div class="divider"></div>
+  <p class="section-label">Top picks nearby</p>
+  <div class="places-grid" id="places-grid"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     SCREEN 4 — PROFILE
+══════════════════════════════════════ -->
+
+<div id="profile-screen" class="screen">
+  <div class="profile-hero">
+    <div class="profile-avatar-big">😎</div>
+    <div class="profile-name">Alex Rivera</div>
+    <div class="profile-handle">@alexr · San Francisco, CA</div>
+  </div>
+  <div class="profile-stats">
+    <div class="stat-cell"><span class="stat-val">14</span><div class="stat-lbl">Friends</div></div>
+    <div class="stat-cell"><span class="stat-val">31</span><div class="stat-lbl">Hangouts</div></div>
+    <div class="stat-cell"><span class="stat-val">8</span><div class="stat-lbl">Places saved</div></div>
+  </div>
+
+  <p class="section-label">Notifications</p>
+  <div class="settings-group">
+    <div class="settings-item">
+      <div class="settings-left">
+        <div class="settings-icon" style="background:rgba(90,255,184,0.1)">🔔</div>
+        <div>
+          <div class="settings-title">Friend nearby alerts</div>
+          <div class="settings-sub">Get pinged when friends are close</div>
+        </div>
+      </div>
+      <div class="toggle on" id="toggle-notif" onclick="toggleSwitch(this)"></div>
+    </div>
+    <div class="settings-item">
+      <div class="settings-left">
+        <div class="settings-icon" style="background:rgba(90,184,255,0.1)">📍</div>
+        <div>
+          <div class="settings-title">Share my location</div>
+          <div class="settings-sub">Let friends see when you're nearby</div>
+        </div>
+      </div>
+      <div class="toggle on" id="toggle-loc" onclick="toggleSwitch(this)"></div>
+    </div>
+    <div class="settings-item">
+      <div class="settings-left">
+        <div class="settings-icon" style="background:rgba(255,184,90,0.1)">📬</div>
+        <div>
+          <div class="settings-title">Invite notifications</div>
+          <div class="settings-sub">Alert me when someone invites me</div>
+        </div>
+      </div>
+      <div class="toggle on" id="toggle-inv" onclick="toggleSwitch(this)"></div>
+    </div>
+  </div>
+
+  <p class="section-label">Account</p>
+  <div class="settings-group">
+    <div class="settings-item" onclick="openModal('add-friend-modal')">
+      <div class="settings-left">
+        <div class="settings-icon" style="background:rgba(90,255,184,0.1)">➕</div>
+        <div>
+          <div class="settings-title">Add friends</div>
+          <div class="settings-sub">Invite people to your orbit</div>
+        </div>
+      </div>
+      <div class="settings-arrow">›</div>
+    </div>
+    <div class="settings-item" onclick="openModal('pref-modal')">
+      <div class="settings-left">
+        <div class="settings-icon" style="background:rgba(255,107,107,0.1)">🎭</div>
+        <div>
+          <div class="settings-title">Hangout vibes</div>
+          <div class="settings-sub">Coffee, bars, parks, food…</div>
+        </div>
+      </div>
+      <div class="settings-arrow">›</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- ══════════════════════════════════════
+     MODAL — SEND INVITE
+══════════════════════════════════════ -->
+
+<div class="modal-overlay" id="send-invite-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Start a hangout 🚀</div>
+    <div class="modal-sub">Pick a spot, choose your crew, and send the vibe.</div>
+
+```
+<p class="section-label">Choose a spot</p>
+<div id="modal-spot-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:18px;"></div>
+
+<p class="section-label">Invite friends</p>
+<div class="modal-friends" id="send-modal-friends"></div>
+
+<p class="section-label">Add a message <span style="color:var(--muted);font-size:0.65rem;font-weight:400;letter-spacing:0">(optional)</span></p>
+<textarea class="invite-message-input" id="invite-message-text" rows="2"
+  placeholder="Down for spontaneous coffee? ☕"></textarea>
+
+<button class="btn-primary" onclick="sendNewInvite()">🚀 Send hangout invite</button>
+<button class="btn-ghost" onclick="closeModal('send-invite-modal')">Cancel</button>
+```
+
+  </div>
+</div>
+
+<!-- MODAL — PLACE INVITE (from Spots screen) -->
+
+<div class="modal-overlay" id="place-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="place-modal-title">Café Ritual</div>
+    <div class="modal-sub" id="place-modal-sub">Invite your nearby friends!</div>
+    <p class="section-label">Select friends</p>
+    <div class="modal-friends" id="place-modal-friends"></div>
+    <textarea class="invite-message-input" id="place-message-text" rows="2"
+      placeholder="Come hang? 👋"></textarea>
+    <button class="btn-primary" onclick="sendPlaceInvite()">🚀 Send invite</button>
+    <button class="btn-ghost" onclick="closeModal('place-modal')">Maybe later</button>
+  </div>
+</div>
+
+<!-- MODAL — ADD FRIEND -->
+
+<div class="modal-overlay" id="add-friend-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Add to your orbit</div>
+    <div class="modal-sub">Share your code or scan a friend's.</div>
+    <div style="text-align:center;padding:28px 0;">
+      <div style="font-size:3.5rem;margin-bottom:10px">🪐</div>
+      <div style="font-family:var(--font-head);font-size:1.9rem;font-weight:800;letter-spacing:0.08em;color:var(--accent)">ORBT-7X2</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-top:5px">Your orbit code — share with friends</div>
+    </div>
+    <button class="btn-primary" onclick="closeModal('add-friend-modal')">✓ Done</button>
+  </div>
+</div>
+
+<!-- MODAL — PREFS -->
+
+<div class="modal-overlay" id="pref-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Your hangout vibes</div>
+    <div class="modal-sub">We'll suggest spots that match your style.</div>
+    <div class="prefs-row" id="modal-prefs-row"></div>
+    <button class="btn-primary" onclick="savePrefs()">Save preferences</button>
+    <button class="btn-ghost" onclick="closeModal('pref-modal')">Cancel</button>
+  </div>
+</div>
+
+<!-- MODAL — ACCEPT INVITE DETAIL -->
+
+<div class="modal-overlay" id="accept-modal">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div style="text-align:center;padding:8px 0 16px;">
+      <div style="font-size:3rem;margin-bottom:8px" id="accept-modal-emoji">🎉</div>
+      <div class="modal-title" id="accept-modal-title" style="text-align:center">Join Jordan at Café Ritual?</div>
+      <div class="modal-sub" id="accept-modal-sub" style="text-align:center">0.3 km away · Active now</div>
+    </div>
+    <div id="accept-modal-message" style="display:none" class="invite-message"></div>
+    <div style="display:flex;gap:10px;margin-top:4px;">
+      <button class="btn-decline" style="flex:1;padding:13px;border-radius:12px;" onclick="resolveInvite('decline')">✕ Decline</button>
+      <button class="btn-accept" style="flex:1;padding:13px;border-radius:12px;font-family:var(--font-head);font-size:0.92rem;font-weight:700;" onclick="resolveInvite('accept')">✓ I'm in!</button>
+    </div>
+    <button class="btn-ghost" onclick="closeModal('accept-modal')">Decide later</button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════════════════
+   DATA
+══════════════════════════════════════════════ */
+const FRIENDS = [
+  { id:1, name:'Hudson',  emoji:'🧢', status:'online',  dist:0.3, angle:40  },
+  { id:2, name:'Inaya',   emoji:'🌸', status:'online',  dist:0.7, angle:130 },
+  { id:3, name:'Pranav',  emoji:'🏀', status:'away',    dist:1.4, angle:220 },
+  { id:4, name:'Siri',   emoji:'🎸', status:'online',  dist:0.5, angle:300 },
+  { id:5, name:'Samaya',     emoji:'🌮', status:'offline', dist:2.8, angle:80  },
+  { id:6, name:'Isabel',    emoji:'🎮', status:'online',  dist:0.9, angle:175 },
+];
+
+const PREFS_ALL = [
+  { id:'coffee', label:'☕ Coffee' }, { id:'bars',   label:'🍸 Bars'   },
+  { id:'food',   label:'🍜 Food'  }, { id:'parks',  label:'🌿 Parks'  },
+  { id:'music',  label:'🎵 Music' }, { id:'art',    label:'🎨 Art'    },
+  { id:'games',  label:'🎲 Games' }, { id:'movies', label:'🎬 Movies' },
+];
+
+let selectedPrefs = new Set(['coffee','food','parks']);
+let radiusKm = 1.0;
+
+const PLACES = [
+  { name:'Café Ritual',   emoji:'☕', dist:'0.2 km', rating:4.8, tags:['coffee','chill'],   bg:'#1a1208', prefs:['coffee'] },
+  { name:'Dolores Park',  emoji:'🌿', dist:'0.6 km', rating:4.9, tags:['park','outdoors'],  bg:'#0a1a10', prefs:['parks'] },
+  { name:'The Interval',  emoji:'🍸', dist:'0.9 km', rating:4.7, tags:['bar','cocktails'],  bg:'#12080f', prefs:['bars','art'] },
+  { name:'Ramen Nagi',    emoji:'🍜', dist:'0.4 km', rating:4.6, tags:['food','ramen'],     bg:'#1a0e08', prefs:['food'] },
+  { name:'Rickshaw Stop', emoji:'🎵', dist:'1.1 km', rating:4.5, tags:['live music','bar'], bg:'#0e0818', prefs:['music','bars'] },
+  { name:'SFMOMA',        emoji:'🎨', dist:'0.8 km', rating:4.8, tags:['art','culture'],    bg:'#081318', prefs:['art'] },
+  { name:'Balboa Theatre',emoji:'🎬', dist:'1.3 km', rating:4.4, tags:['movies','indie'],   bg:'#180810', prefs:['movies'] },
+  { name:'Exploratorium', emoji:'🔭', dist:'1.8 km', rating:4.7, tags:['science','fun'],    bg:'#0a0f18', prefs:['art','games'] },
+];
+
+/* ── INVITE DATA ── */
+let invites = {
+  received: [
+    {
+      id:'r1', from: FRIENDS[0], place:'Café Ritual', placeEmoji:'☕',
+      dist:'0.3 km', distNear:true,
+      message:"Dude I'm right around the corner, coffee?? ☕",
+      time:'2 min ago', status:'pending'
+    },
+    {
+      id:'r2', from: FRIENDS[3], place:'Dolores Park',  placeEmoji:'🌿',
+      dist:'0.5 km', distNear:true,
+      message:'Sun is out, come chill in the park!',
+      time:'11 min ago', status:'pending'
+    },
+  ],
+  sent: [
+    {
+      id:'s1', to:[FRIENDS[1], FRIENDS[5]], place:'Ramen Nagi', placeEmoji:'🍜',
+      dist:'0.4 km', message:'Ramen run?? 🍜',
+      time:'5 min ago', status:'pending'
+    },
+    {
+      id:'s2', to:[FRIENDS[2]], place:'The Interval', placeEmoji:'🍸',
+      dist:'0.9 km', message:'',
+      time:'22 min ago', status:'pending'
+    },
+    {
+      id:'s3', to:[FRIENDS[0], FRIENDS[3]], place:'Rickshaw Stop', placeEmoji:'🎵',
+      dist:'1.1 km', message:'Live music tonight, you in?',
+      time:'1 hr ago', status:'accepted'
+    },
+  ],
+  past: [
+    {
+      id:'p1', from: FRIENDS[1], place:'SFMOMA', placeEmoji:'🎨',
+      dist:'0.8 km', message:'', time:'Yesterday', status:'accepted', direction:'received'
+    },
+    {
+      id:'p2', to:[FRIENDS[5]], place:'Balboa Theatre', placeEmoji:'🎬',
+      dist:'1.3 km', message:'Movie night?', time:'2 days ago', status:'declined', direction:'sent'
+    },
+    {
+      id:'p3', from: FRIENDS[2], place:'Dolores Park', placeEmoji:'🌿',
+      dist:'0.6 km', message:'', time:'3 days ago', status:'expired', direction:'received'
+    },
+    {
+      id:'p4', to:[FRIENDS[0],FRIENDS[1],FRIENDS[3]], place:'Café Ritual', placeEmoji:'☕',
+      dist:'0.2 km', message:'Sunday morning coffee run ☕', time:'5 days ago', status:'accepted', direction:'sent'
+    },
+  ]
+};
+
+let currentSubtab = 'received';
+let activeAcceptId = null;
+
+/* ══════════════════════════════════════════════
+   SCREEN NAVIGATION
+══════════════════════════════════════════════ */
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id + '-screen').classList.add('active');
+  const tabs = document.querySelectorAll('.nav-tab');
+  const idx = ['radar','invites','suggestions','profile'].indexOf(id);
+  if (idx >= 0) tabs[idx].classList.add('active');
+  if (id === 'suggestions') renderPlaces();
+  if (id === 'invites') renderInviteList();
+}
+
+/* ══════════════════════════════════════════════
+   RADAR CANVAS
+══════════════════════════════════════════════ */
+const canvas = document.getElementById('radarCanvas');
+const ctx    = canvas.getContext('2d');
+let scanAngle = 0;
+let currentRadius = 5;
+
+function drawRadar() {
+  const W = canvas.width, H = canvas.height;
+  const cx = W/2, cy = H/2, maxR = W * 0.44;
+
+  ctx.clearRect(0,0,W,H);
+
+  ctx.beginPath(); ctx.arc(cx,cy,maxR,0,Math.PI*2);
+  ctx.fillStyle = '#0d1020'; ctx.fill();
+
+  [0.25,0.5,0.75,1].forEach(f => {
+    ctx.beginPath(); ctx.arc(cx,cy,maxR*f,0,Math.PI*2);
+    ctx.strokeStyle = 'rgba(90,255,184,0.08)'; ctx.lineWidth = 1; ctx.stroke();
+  });
+  [0,Math.PI/2,Math.PI,3*Math.PI/2].forEach(a => {
+    ctx.beginPath(); ctx.moveTo(cx,cy);
+    ctx.lineTo(cx+maxR*Math.cos(a), cy+maxR*Math.sin(a));
+    ctx.strokeStyle = 'rgba(90,255,184,0.05)'; ctx.lineWidth = 1; ctx.stroke();
+  });
+
+  // Radius ring
+  const radiusFrac = currentRadius / 10;
+  ctx.beginPath(); ctx.arc(cx,cy,maxR*radiusFrac,0,Math.PI*2);
+  ctx.strokeStyle = 'rgba(90,255,184,0.22)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([5,4]); ctx.stroke(); ctx.setLineDash([]);
+
+  // Sweep
+  const sweepLen = Math.PI * 0.4;
+  const grad = ctx.createLinearGradient(cx,cy,cx+maxR,cy);
+  grad.addColorStop(0,'rgba(90,255,184,0.16)');
+  grad.addColorStop(1,'rgba(90,255,184,0)');
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(scanAngle);
+  ctx.beginPath(); ctx.moveTo(0,0);
+  ctx.arc(0,0,maxR,-sweepLen/2,sweepLen/2); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill(); ctx.restore();
+
+  // Friends
+  FRIENDS.forEach(f => {
+    const distNorm = Math.min(f.dist/3, 0.95);
+    const rad = (f.angle-90)*Math.PI/180;
+    const x = cx + distNorm*maxR*Math.cos(rad);
+    const y = cy + distNorm*maxR*Math.sin(rad);
+    const isNear = f.dist <= radiusKm && f.status !== 'offline';
+    const color = f.status==='offline' ? '#444' : isNear ? '#5ab8ff' : '#ff6b6b';
+    if (isNear) {
+      ctx.beginPath(); ctx.arc(x,y,11,0,Math.PI*2);
+      ctx.fillStyle='rgba(90,184,255,0.11)'; ctx.fill();
+    }
+    ctx.beginPath(); ctx.arc(x,y,5,0,Math.PI*2);
+    ctx.fillStyle=color; ctx.fill();
+    ctx.font='600 11px DM Sans,sans-serif';
+    ctx.fillStyle=f.status==='offline'?'#555':'#e8eaf2';
+    ctx.textAlign='center';
+    ctx.fillText(f.name.split(' ')[0], x, y-10);
+  });
+
+  // You
+  ctx.beginPath(); ctx.arc(cx,cy,7,0,Math.PI*2); ctx.fillStyle='#5affb8'; ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy,13,0,Math.PI*2);
+  ctx.strokeStyle='rgba(90,255,184,0.28)'; ctx.lineWidth=2; ctx.stroke();
+  ctx.font='bold 11px DM Sans,sans-serif'; ctx.fillStyle='#5affb8'; ctx.textAlign='center';
+  ctx.fillText('YOU',cx,cy-16);
+
+  scanAngle += 0.018;
+  requestAnimationFrame(drawRadar);
+}
+drawRadar();
+
+/* ══════════════════════════════════════════════
+   RADIUS SLIDER
+══════════════════════════════════════════════ */
+function updateRadius(input) {
+  const val = parseInt(input.value);
+  currentRadius = val;
+  radiusKm = val / 2;
+  document.getElementById('radius-display').textContent = radiusKm.toFixed(1) + ' km';
+  const pct = ((val-1)/9)*100;
+  input.style.setProperty('--pct', pct+'%');
+  renderFriendsList();
+}
+(function(){ document.getElementById('radius-slider').style.setProperty('--pct','44%'); })();
+
+/* ══════════════════════════════════════════════
+   FRIENDS LIST
+══════════════════════════════════════════════ */
+function renderFriendsList() {
+  const list = document.getElementById('friends-list');
+  const sorted = [...FRIENDS].sort((a,b)=>a.dist-b.dist);
+  list.innerHTML = sorted.map(f => {
+    const isNear = f.dist<=radiusKm && f.status!=='offline';
+    const badgeClass = isNear?'badge-near':(f.dist<=radiusKm*2?'badge-away':'badge-far');
+    const badgeText  = isNear?`📍 ${f.dist.toFixed(1)} km`:(f.status==='offline'?'Offline':`${f.dist.toFixed(1)} km`);
+    return `<div class="friend-card ${f.status==='offline'?'offline':''}" onclick="friendTap(${f.id})">
+      <div class="friend-avatar" style="background:rgba(90,184,255,0.08)">
+        ${f.emoji}<div class="friend-avatar-status ${f.status}"></div>
+      </div>
+      <div class="friend-info">
+        <div class="friend-name">${f.name}</div>
+        <div class="friend-sub">${f.status==='offline'?'Not sharing location':'Active now'}</div>
+      </div>
+      <span class="friend-badge ${badgeClass}">${badgeText}</span>
+    </div>`;
+  }).join('');
+}
+renderFriendsList();
+
+function friendTap(id) {
+  const f = FRIENDS.find(x=>x.id===id);
+  if (!f||f.status==='offline') return;
+  openSendInviteForFriend(f);
+}
+
+/* ══════════════════════════════════════════════
+   INVITE SCREEN — RENDER
+══════════════════════════════════════════════ */
+function switchSubtab(tab, el) {
+  currentSubtab = tab;
+  document.querySelectorAll('.subtab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderInviteList();
+}
+
+function renderInviteList() {
+  const container = document.getElementById('invite-list-container');
+  const items = invites[currentSubtab];
+
+  // update counts
+  document.getElementById('received-count').textContent = invites.received.filter(i=>i.status==='pending').length;
+  document.getElementById('sent-count').textContent     = invites.sent.length;
+  document.getElementById('past-count').textContent     = invites.past.length;
+
+  // update badge
+  const pendingCount = invites.received.filter(i=>i.status==='pending').length;
+  document.getElementById('invite-badge').classList.toggle('visible', pendingCount > 0);
+
+  if (!items.length) {
+    container.innerHTML = `<div class="empty-state">
+      <div class="empty-state-icon">${currentSubtab==='received'?'📭':currentSubtab==='sent'?'📤':'🕑'}</div>
+      <div class="empty-state-title">No ${currentSubtab} invites yet</div>
+      <div class="empty-state-sub">${currentSubtab==='received'?'When friends invite you, they\'ll show up here.':currentSubtab==='sent'?'Tap the button above to start a hangout!':'Your hangout history will appear here.'}</div>
+    </div>`;
+    return;
+  }
+
+  if (currentSubtab === 'received') {
+    container.innerHTML = items.map(inv => buildReceivedCard(inv)).join('');
+  } else if (currentSubtab === 'sent') {
+    container.innerHTML = items.map(inv => buildSentCard(inv)).join('');
+  } else {
+    container.innerHTML = items.map(inv => buildPastCard(inv)).join('');
+  }
+}
+
+function buildReceivedCard(inv) {
+  const statusClass = inv.status==='pending'?'incoming':'accepted';
+  const msgHtml = inv.message
+    ? `<div class="invite-message">"${inv.message}"</div>`
+    : '';
+  const actionHtml = inv.status==='pending'
+    ? `<div class="invite-actions">
+        <button class="btn-decline" onclick="openAcceptModal('${inv.id}','decline')">✕ Decline</button>
+        <button class="btn-accept"  onclick="openAcceptModal('${inv.id}','preview')">✓ I'm in!</button>
+       </div>`
+    : `<div class="invite-actions">
+        <button class="btn-resend" onclick="showToast('👋 Message sent','You replied to ${inv.from.name}',false)">💬 Reply</button>
+       </div>`;
+
+  return `<div class="invite-card ${statusClass}" id="icard-${inv.id}">
+    <div class="invite-card-top">
+      <div class="invite-avatar" style="background:rgba(90,184,255,0.1)">
+        ${inv.from.emoji}
+        <div class="invite-type-badge in">📨</div>
+      </div>
+      <div class="invite-main">
+        <div class="invite-who">${inv.from.name}</div>
+        <div class="invite-action">invited you to <strong>${inv.place}</strong></div>
+        <div class="invite-place-pill"><span>${inv.placeEmoji}</span>${inv.place}</div>
+        <div class="invite-meta-row">
+          <span class="invite-time">🕐 ${inv.time}</span>
+          <span class="invite-dist ${inv.distNear?'near':'far'}">${inv.distNear?'📍':'🗺'} ${inv.dist}</span>
+          <span class="invite-status-badge ${inv.status==='pending'?'status-pending':'status-accepted'}">
+            ${inv.status==='pending'?'Pending':'Accepted ✓'}
+          </span>
+        </div>
+      </div>
+    </div>
+    ${msgHtml}
+    ${actionHtml}
+  </div>`;
+}
+
+function buildSentCard(inv) {
+  const recipientNames = inv.to.map(f=>f.name.split(' ')[0]).join(', ');
+  const allChips = inv.to.map(f=>`<span class="also-chip"><span>${f.emoji}</span>${f.name.split(' ')[0]}</span>`).join('');
+  const statusBadge = inv.status==='accepted'
+    ? `<span class="invite-status-badge status-accepted">Accepted ✓</span>`
+    : `<span class="invite-status-badge status-pending">Waiting…</span>`;
+
+  const msgHtml = inv.message
+    ? `<div class="invite-message">"${inv.message}"</div>`
+    : '';
+
+  const actionHtml = inv.status==='pending'
+    ? `<div class="invite-actions">
+        <button class="btn-cancel-invite" onclick="cancelInvite('${inv.id}')">✕ Cancel invite</button>
+        <button class="btn-resend" onclick="showToast('📬 Nudge sent','Poked ${recipientNames} again!',false)">👋 Nudge</button>
+       </div>`
+    : `<div class="invite-actions">
+        <button class="btn-resend" onclick="showToast('🎉 On your way!','Message sent to ${recipientNames}',false)">💬 Message crew</button>
+       </div>`;
+
+  return `<div class="invite-card outgoing" id="icard-${inv.id}">
+    <div class="invite-card-top">
+      <div class="invite-avatar" style="background:rgba(90,255,184,0.08)">
+        ${inv.to[0].emoji}
+        <div class="invite-type-badge out">📤</div>
+      </div>
+      <div class="invite-main">
+        <div class="invite-who">You</div>
+        <div class="invite-action">invited <strong>${recipientNames}</strong> to <strong>${inv.place}</strong></div>
+        <div class="invite-place-pill"><span>${inv.placeEmoji}</span>${inv.place}</div>
+        <div class="invite-meta-row">
+          <span class="invite-time">🕐 ${inv.time}</span>
+          ${statusBadge}
+        </div>
+      </div>
+    </div>
+    ${msgHtml}
+    <div class="invite-also">
+      <span class="also-label">To:</span>${allChips}
+    </div>
+    ${actionHtml}
+  </div>`;
+}
+
+function buildPastCard(inv) {
+  const isReceived = inv.direction === 'received';
+  const who = isReceived ? inv.from.name : 'You → ' + inv.to.map(f=>f.name.split(' ')[0]).join(', ');
+  const emoji = isReceived ? inv.from.emoji : inv.to[0].emoji;
+  const statusMap = { accepted:'status-accepted', declined:'status-declined', expired:'status-expired' };
+  const statusLabel = { accepted:'Accepted ✓', declined:'Declined ✗', expired:'Expired' };
+
+  return `<div class="invite-card ${inv.status}">
+    <div class="invite-card-top">
+      <div class="invite-avatar" style="background:rgba(99,104,130,0.1)">${emoji}</div>
+      <div class="invite-main">
+        <div class="invite-who">${who}</div>
+        <div class="invite-action">${isReceived?'invited you':'invited crew'} to <strong>${inv.place}</strong></div>
+        <div class="invite-place-pill"><span>${inv.placeEmoji}</span>${inv.place}</div>
+        <div class="invite-meta-row">
+          <span class="invite-time">🕐 ${inv.time}</span>
+          <span class="invite-status-badge ${statusMap[inv.status]}">${statusLabel[inv.status]}</span>
+        </div>
+      </div>
+    </div>
+    ${inv.status==='accepted'?`<div class="invite-actions"><button class="btn-resend" onclick="showToast('📬 Invite sent','Round 2 on its way!',false)">🔄 Go again</button></div>`:''}
+  </div>`;
+}
+
+/* ══════════════════════════════════════════════
+   ACCEPT / DECLINE MODAL
+══════════════════════════════════════════════ */
+function openAcceptModal(id, action) {
+  if (action === 'decline') {
+    resolveInviteById(id, 'decline');
+    return;
+  }
+  activeAcceptId = id;
+  const inv = invites.received.find(i=>i.id===id);
+  document.getElementById('accept-modal-emoji').textContent = inv.placeEmoji;
+  document.getElementById('accept-modal-title').textContent = `Join ${inv.from.name.split(' ')[0]} at ${inv.place}?`;
+  document.getElementById('accept-modal-sub').textContent   = `${inv.dist} away · ${inv.from.status === 'online' ? 'Active now' : 'Away'}`;
+  const msgEl = document.getElementById('accept-modal-message');
+  if (inv.message) { msgEl.textContent = `"${inv.message}"`; msgEl.style.display='block'; }
+  else { msgEl.style.display='none'; }
+  openModal('accept-modal');
+}
+
+function resolveInvite(action) {
+  resolveInviteById(activeAcceptId, action);
+  closeModal('accept-modal');
+}
+
+function resolveInviteById(id, action) {
+  const inv = invites.received.find(i=>i.id===id);
+  if (!inv) return;
+  inv.status = action === 'accept' ? 'accepted' : 'declined';
+  // move to past
+  invites.past.unshift({...inv, direction:'received', time:'just now'});
+  invites.received = invites.received.filter(i=>i.id!==id);
+
+  if (action === 'accept') {
+    showToast('🎉 You\'re going!', `Heading to ${inv.place} with ${inv.from.name.split(' ')[0]}`, false);
+  } else {
+    showToast('👋 Declined', `You passed on ${inv.place} — maybe next time`, true);
+  }
+  renderInviteList();
+}
+
+function cancelInvite(id) {
+  const inv = invites.sent.find(i=>i.id===id);
+  if (!inv) return;
+  invites.sent = invites.sent.filter(i=>i.id!==id);
+  const names = inv.to.map(f=>f.name.split(' ')[0]).join(', ');
+  showToast('✕ Invite cancelled', `${names} won't see the invite anymore`, true);
+  renderInviteList();
+}
+
+/* ══════════════════════════════════════════════
+   SEND INVITE MODAL
+══════════════════════════════════════════════ */
+let selectedSpot = null;
+
+function openSendInviteModal() {
+  selectedSpot = null;
+  buildSendInviteSpots();
+  buildSendInviteFriends();
+  document.getElementById('invite-message-text').value = '';
+  openModal('send-invite-modal');
+}
+
+function openSendInviteForFriend(friend) {
+  openSendInviteModal();
+  // Pre-select the friend
+  setTimeout(() => {
+    const chips = document.querySelectorAll('#send-modal-friends .modal-friend-chip');
+    chips.forEach(c => { if (c.dataset.id == friend.id) c.classList.add('selected'); });
+  }, 50);
+}
+
+function buildSendInviteSpots() {
+  const el = document.getElementById('modal-spot-list');
+  el.innerHTML = PLACES.slice(0,4).map((p,i) => `
+    <div class="modal-friend-chip" style="border-radius:11px;padding:9px 13px;gap:10px;width:100%;justify-content:flex-start;"
+         onclick="selectSpot(${i}, this)" id="spot-chip-${i}">
+      <span>${p.emoji}</span>
+      <span style="flex:1;font-weight:600">${p.name}</span>
+      <span style="color:var(--muted);font-size:0.75rem">${p.dist}</span>
+    </div>`).join('');
+}
+
+function selectSpot(idx, el) {
+  document.querySelectorAll('#modal-spot-list .modal-friend-chip').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedSpot = PLACES[idx];
+}
+
+function buildSendInviteFriends() {
+  const el = document.getElementById('send-modal-friends');
+  const onlineFriends = FRIENDS.filter(f=>f.status!=='offline');
+  el.innerHTML = onlineFriends.map(f=>`
+    <div class="modal-friend-chip" onclick="this.classList.toggle('selected')" data-id="${f.id}">
+      <span>${f.emoji}</span>${f.name.split(' ')[0]}
+    </div>`).join('');
+}
+
+function sendNewInvite() {
+  const selectedFriends = [...document.querySelectorAll('#send-modal-friends .modal-friend-chip.selected')];
+  const msg = document.getElementById('invite-message-text').value.trim();
+
+  if (!selectedSpot) {
+    showToast('📍 Pick a spot', 'Choose where you want to hang first!', false); return;
+  }
+  if (!selectedFriends.length) {
+    showToast('👥 Add friends', 'Select at least one friend to invite!', false); return;
+  }
+
+  const ids = selectedFriends.map(c=>parseInt(c.dataset.id));
+  const friendObjs = FRIENDS.filter(f=>ids.includes(f.id));
+  const names = friendObjs.map(f=>f.name.split(' ')[0]).join(', ');
+
+  const newInvite = {
+    id: 's' + Date.now(),
+    to: friendObjs,
+    place: selectedSpot.name,
+    placeEmoji: selectedSpot.emoji,
+    dist: selectedSpot.dist,
+    message: msg,
+    time: 'just now',
+    status: 'pending'
+  };
+  invites.sent.unshift(newInvite);
+  closeModal('send-invite-modal');
+  showToast('🚀 Invite sent!', `${names} ${friendObjs.length>1?'were':'was'} invited to ${selectedSpot.name}`, false);
+  renderInviteList();
+}
+
+/* ══════════════════════════════════════════════
+   PLACE MODAL (from Spots screen)
+══════════════════════════════════════════════ */
+let currentPlaceName='', currentPlaceEmoji='', currentPlaceDist='';
+
+function openPlaceModal(name, dist, emoji) {
+  currentPlaceName=name; currentPlaceEmoji=emoji; currentPlaceDist=dist;
+  document.getElementById('place-modal-title').textContent = name;
+  document.getElementById('place-modal-sub').textContent   = `${dist} from you · Invite your crew!`;
+  const fc = document.getElementById('place-modal-friends');
+  const onlineFriends = FRIENDS.filter(f=>f.status!=='offline');
+  fc.innerHTML = onlineFriends.map(f=>`
+    <div class="modal-friend-chip" onclick="this.classList.toggle('selected')" data-id="${f.id}">
+      <span>${f.emoji}</span>${f.name.split(' ')[0]}
+    </div>`).join('');
+  document.getElementById('place-message-text').value='';
+  openModal('place-modal');
+}
+
+function sendPlaceInvite() {
+  const sel = [...document.querySelectorAll('#place-modal-friends .modal-friend-chip.selected')];
+  const msg = document.getElementById('place-message-text').value.trim();
+  if (!sel.length) { showToast('📍 Heads up','Pick at least one friend!',false); return; }
+  const ids = sel.map(c=>parseInt(c.dataset.id));
+  const friendObjs = FRIENDS.filter(f=>ids.includes(f.id));
+  const names = friendObjs.map(f=>f.name.split(' ')[0]).join(', ');
+  invites.sent.unshift({
+    id:'s'+Date.now(), to:friendObjs,
+    place:currentPlaceName, placeEmoji:currentPlaceEmoji,
+    dist:currentPlaceDist, message:msg, time:'just now', status:'pending'
+  });
+  closeModal('place-modal');
+  showToast('🚀 Invite sent!', `${names} invited to ${currentPlaceName}`, false);
+}
+
+/* ══════════════════════════════════════════════
+   PREFS
+══════════════════════════════════════════════ */
+function renderPrefsRow(cid, fn) {
+  document.getElementById(cid).innerHTML = PREFS_ALL.map(p=>`
+    <div class="pref-chip ${selectedPrefs.has(p.id)?'selected':''}"
+         onclick="${fn}('${p.id}',this)">${p.label}</div>`).join('');
+}
+function togglePref(id,el){ selectedPrefs.has(id)?selectedPrefs.delete(id):selectedPrefs.add(id); el.classList.toggle('selected'); renderPlaces(); }
+function togglePrefModal(id,el){ selectedPrefs.has(id)?selectedPrefs.delete(id):selectedPrefs.add(id); el.classList.toggle('selected'); }
+renderPrefsRow('prefs-row','togglePref');
+renderPrefsRow('modal-prefs-row','togglePrefModal');
+function savePrefs(){ closeModal('pref-modal'); showToast('✨ Vibes saved','Spot suggestions updated.',false); renderPlaces(); }
+
+/* ══════════════════════════════════════════════
+   PLACES
+══════════════════════════════════════════════ */
+function renderPlaces() {
+  const grid = document.getElementById('places-grid');
+  const filtered = selectedPrefs.size===0?PLACES:PLACES.filter(p=>p.prefs.some(t=>selectedPrefs.has(t)));
+  grid.innerHTML = filtered.map(p=>`
+    <div class="place-card" onclick="openPlaceModal('${p.name}','${p.dist}','${p.emoji}')">
+      <div class="place-thumb" style="background:${p.bg}"><span>${p.emoji}</span></div>
+      <div class="place-body">
+        <div class="place-name">${p.name}</div>
+        <div class="place-meta">
+          <span class="place-distance">📍 ${p.dist}</span>
+          <span class="place-rating">★ ${p.rating}</span>
+        </div>
+        <div class="place-tags">${p.tags.map(t=>`<span class="place-tag">${t}</span>`).join('')}</div>
+        <button class="btn-invite" onclick="event.stopPropagation();openPlaceModal('${p.name}','${p.dist}','${p.emoji}')">
+          Invite friends here
+        </button>
+      </div>
+    </div>`).join('');
+  if (!filtered.length) grid.innerHTML=`<div style="color:var(--muted);font-size:0.85rem;padding:20px 0">No spots match — try more vibes above.</div>`;
+}
+
+/* ══════════════════════════════════════════════
+   MODALS
+══════════════════════════════════════════════ */
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(m=>{
+  m.addEventListener('click', e=>{ if(e.target===m) m.classList.remove('open'); });
+});
+
+// "Start a hangout" CTA
+document.querySelector('.new-invite-cta').addEventListener('click', openSendInviteModal);
+
+/* ══════════════════════════════════════════════
+   TOGGLE
+══════════════════════════════════════════════ */
+function toggleSwitch(el){ el.classList.toggle('on'); }
+
+/* ══════════════════════════════════════════════
+   TOAST
+══════════════════════════════════════════════ */
+function showToast(title, msg, isFarewell=false, actions=null) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast' + (isFarewell?' farewell':'');
+  let actHtml = '';
+  if (actions) {
+    actHtml = `<div class="toast-actions">
+      <button class="toast-btn accept" onclick="${actions.accept}">${actions.acceptLabel}</button>
+      <button class="toast-btn decline" onclick="${actions.decline}">${actions.declineLabel}</button>
+    </div>`;
+    t.className = 'toast invite-in';
+  }
+  t.innerHTML = `
+    <div class="toast-icon">${isFarewell?'👋':actions?'📬':'📍'}</div>
+    <div class="toast-body">
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${msg}</div>
+      ${actHtml}
+    </div>
+    <button class="toast-close" onclick="dismissToast(this.parentElement)">✕</button>`;
+  c.appendChild(t);
+  setTimeout(()=>dismissToast(t), actions?9000:5000);
+}
+function dismissToast(t){
+  t.style.animation='slideOut 0.3s ease forwards';
+  setTimeout(()=>t.remove(),300);
+}
+
+/* ══════════════════════════════════════════════
+   SIMULATED PROXIMITY + INVITE NOTIFICATIONS
+══════════════════════════════════════════════ */
+// Proximity pings
+const proximityQueue = [
+  { friend:FRIENDS[0], delay:3500 },
+  { friend:FRIENDS[3], delay:11000 },
+];
+proximityQueue.forEach(({friend,delay})=>{
+  setTimeout(()=>{
+    if(document.getElementById('toggle-notif').classList.contains('on')){
+      showToast(`${friend.emoji} ${friend.name} is nearby!`,
+        `${friend.dist.toFixed(1)} km away — want to hang?`, false);
+    }
+  }, delay);
+});
+
+// Simulated incoming invite toast (with action buttons)
+setTimeout(()=>{
+  if(document.getElementById('toggle-inv').classList.contains('on')){
+    const inv = invites.received[0];
+    const t = document.createElement('div');
+    t.className = 'toast invite-in';
+    t.innerHTML = `
+      <div class="toast-icon">📬</div>
+      <div class="toast-body">
+        <div class="toast-title">${inv.from.emoji} ${inv.from.name} invited you!</div>
+        <div class="toast-msg">${inv.place} · ${inv.dist}</div>
+        <div class="toast-actions">
+          <button class="toast-btn accept" onclick="openAcceptModal('${inv.id}','preview');dismissToast(this.closest('.toast'))">✓ View</button>
+          <button class="toast-btn decline" onclick="resolveInviteById('${inv.id}','decline');dismissToast(this.closest('.toast'))">✕ Decline</button>
+        </div>
+      </div>
+      <button class="toast-close" onclick="dismissToast(this.parentElement)">✕</button>`;
+    document.getElementById('toast-container').appendChild(t);
+    setTimeout(()=>dismissToast(t), 12000);
+    renderInviteList();
+  }
+}, 6000);
+
+// Init
+renderInviteList();
+
+if('Notification' in window){
+  Notification.requestPermission().then(perm=>{
+    if(perm==='granted'){
+      setTimeout(()=>{
+        new Notification('📬 Jordan invited you to hang!',{body:'Café Ritual · 0.3 km away',icon:'🛰'});
+      }, 6500);
+    }
+  });
+}
+</script>
+
+</body>
+</html>
