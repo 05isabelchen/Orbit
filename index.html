@@ -665,7 +665,7 @@ input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 7px rgba(90,25
 
 .divider { height: 1px; background: var(--border); margin: 18px 0; }
 </style>
-
+<script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
 <div id="app">
@@ -944,7 +944,56 @@ input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 7px rgba(90,25
   </div>
 </div>
 
-<script>
+<script >
+const socket = io();
+let ME = null;
+
+function doLogin() {
+  const name  = document.getElementById('username-input').value.trim();
+  const emoji = document.getElementById('emoji-input').value.trim() || '🌝';
+  if (!name) return;
+  ME = { id: name.toLowerCase().replace(/\s+/g, '_'), name, emoji };
+
+  socket.emit('login', ME);
+
+  document.querySelector('.profile-name').textContent = ME.name;
+  document.querySelector('.profile-handle').textContent = `@${ME.id}`;
+  document.querySelector('.nav-avatar').textContent = ME.emoji;
+  document.querySelector('.profile-avatar-big').textContent = ME.emoji;
+  document.getElementById('login-screen').style.display = 'none';
+}
+
+// Server tells us the current user list
+socket.on('users_updated', (serverUsers) => {
+  FRIENDS.length = 0;
+  let i = 1;
+  serverUsers.forEach(u => {
+    if (u.id === ME?.id) return;
+    FRIENDS.push({
+      id: i++, serverId: u.id,
+      name: u.name, emoji: u.emoji,
+      status: u.status,
+      dist: +(Math.random() * 2.5 + 0.1).toFixed(1),
+      angle: Math.random() * 360
+    });
+  });
+  renderFriendsList();
+});
+
+// Someone sent you an invite
+socket.on('new_invite', (invite) => {
+  invites.received.unshift(invite);
+  renderInviteList();
+  showToast(`📬 ${invite.from.emoji} ${invite.from.name} invited you!`,
+    `${invite.place} · ${invite.dist}`, false);
+});
+
+// Your invite was accepted/declined
+socket.on('invite_resolved', ({ action, byName }) => {
+  const verb = action === 'accept' ? 'accepted 🎉' : 'declined ✗';
+  showToast(`${byName} ${verb} your invite`, '', false);
+});
+
 /* ══════════════════════════════════════════════
    DATA
 ══════════════════════════════════════════════ */
@@ -1339,6 +1388,7 @@ function resolveInvite(action) {
 }
 
 function resolveInviteById(id, action) {
+  socket.emit('resolve_invite', { inviteId: id, action, fromUserId: inv.from.serverId || inv.from.name?.toLowerCase().replace(/\s+/g,'_') });
   const inv = invites.received.find(i=>i.id===id);
   if (!inv) return;
   inv.status = action === 'accept' ? 'accepted' : 'declined';
@@ -1437,6 +1487,13 @@ function sendNewInvite() {
     status: 'pending'
   };
   invites.sent.unshift(newInvite);
+  const serverIds = friendObjs.map(f => f.serverId).filter(Boolean);
+  
+  if (serverIds.length) socket.emit('send_invite', {
+    toIds: serverIds, place: selectedSpot.name,
+    placeEmoji: selectedSpot.emoji, dist: selectedSpot.dist, message: msg
+  });
+
   closeModal('send-invite-modal');
   showToast('🚀 Invite sent!', `${names} ${friendObjs.length>1?'were':'was'} invited to ${selectedSpot.name}`, false);
   renderInviteList();
@@ -1473,6 +1530,13 @@ function sendPlaceInvite() {
     place:currentPlaceName, placeEmoji:currentPlaceEmoji,
     dist:currentPlaceDist, message:msg, time:'just now', status:'pending'
   });
+  const serverIds = friendObjs.map(f => f.serverId).filter(Boolean);
+  
+  if (serverIds.length) socket.emit('send_invite', {
+    toIds: serverIds, place: currentPlaceName,
+    placeEmoji: currentPlaceEmoji, dist: currentPlaceDist, message: msg
+  });
+
   closeModal('place-modal');
   showToast('🚀 Invite sent!', `${names} invited to ${currentPlaceName}`, false);
 }
