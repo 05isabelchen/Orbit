@@ -670,6 +670,24 @@ input[type=range]::-webkit-slider-thumb:hover { box-shadow: 0 0 0 7px rgba(90,25
 <body>
 <div id="app">
 
+<div class="modal-overlay" id="login-modal" style="display:flex">
+  <div class="modal-sheet">
+    <div style="text-align:center;margin-bottom:20px">
+      <div style="font-family:var(--font-head);font-size:2rem;font-weight:800;color:var(--accent)">orbit.</div>
+      <div style="color:var(--muted);font-size:0.85rem;margin-top:4px">Enter a username to join</div>
+    </div>
+    <input id="username-input" placeholder="e.g. hudson or inaya"
+      style="width:100%;padding:12px 16px;background:var(--surface);
+      border:1px solid var(--border);border-radius:12px;color:var(--text);
+      font-family:var(--font-body);font-size:0.95rem;outline:none;margin-bottom:10px"/>
+    <input id="emoji-input" placeholder="Pick an emoji avatar e.g. 🧢"
+      style="width:100%;padding:12px 16px;background:var(--surface);
+      border:1px solid var(--border);border-radius:12px;color:var(--text);
+      font-family:var(--font-body);font-size:0.95rem;outline:none;margin-bottom:4px"/>
+    <button class="btn-primary" onclick="doLogin()">Join my orbit →</button>
+  </div>
+</div>
+
 <!-- NAV -->
 
 <nav>
@@ -1388,11 +1406,12 @@ function resolveInvite(action) {
 }
 
 function resolveInviteById(id, action) {
-  socket.emit('resolve_invite', { inviteId: id, action, fromUserId: inv.from.serverId || inv.from.name?.toLowerCase().replace(/\s+/g,'_') });
   const inv = invites.received.find(i=>i.id===id);
   if (!inv) return;
+
+  socket.emit('resolve_invite', { inviteId: id, action, fromUserId: inv.from.serverId || inv.from.name?.toLowerCase().replace(/\s+/g,'_') });
+
   inv.status = action === 'accept' ? 'accepted' : 'declined';
-  // move to past
   invites.past.unshift({...inv, direction:'received', time:'just now'});
   invites.received = invites.received.filter(i=>i.id!==id);
 
